@@ -5,20 +5,14 @@ Company: pfm
 Description: File transfer program to move folders from one path to another.
 Useful when needing to free up space in some external device that is acquiring
 data.
-
-# TODO: IF THERE ARE TWO FOLDERS WITH THE SAME NAME IN THE ORIGIN PATH AND THE
-		DESTINY PATH, THEN THE FOLDER IN THE ORIGIN PATH IS IGNORED.
-
-# TODO: SOMETIMES THE SMARTPHONE MAY SKIP A FEW PICTURES. THUS, THE FOLDER MIGHT
-		BE SLIGHTLY INCOMPLETE. LETS SAY 784 PICTURES (MISSING 16 PICTURES). IN
-		THIS CASE. WE SHOULD BE ABLE TO COPY THIS FILE NO MATTER WHAT.
-
 """
 # Libraries
 # General purpose
 import os
 import sys
 import logging
+# Regex
+import re
 # Threads
 import threading
 # Local Libraries
@@ -54,30 +48,72 @@ class MainThread(threading.Thread):
 			# If there are no connected devices, then check again later.
 			if connectedDevices == None:
 				pass
-				# Otherwise, transfer the folders to free up space in the devices.
+			# Otherwise, transfer the folders and files to free up space in the devices.
 			else:
 				# Set paths to origin path
 				connectedDevices = [os.path.join(Paths.PATH_TO_DEVICES, \
 									i, Paths.PATH_TO_DCIM_IN_PHONE) for i in \
 									connectedDevices]
 				ft.originPaths = connectedDevices
-				logging.info("Origin paths set to: {}".format(ft.originPaths))
-				# Get folders in origin path
-				foldersAndPaths = ft.comparePathWithDB()
-				missingFoldersPath = [i[0] for i in foldersAndPaths]
-				missingFoldersName = [i[1] for i in foldersAndPaths]
+				# Read folders in origin path
+				foldersOriginPath = ft.readOriginFolders()
 				# Iterate over folders
-				for i in range(len(missingFoldersName)):
-					# Check if the amount of files is valid for transfer
-					pathFolder = os.path.join(missingFoldersPath[i], missingFoldersName[i])
-					result = ft.check_amount_of_files(pathFolder)
-					# If it is valid, then copy the folder.
-					if result:
-						ft.transferFolder(missingFoldersName[i],\
-						missingFoldersPath[i])
-						# Otherwise, skip the folder.
+				for folderOriginPath in foldersOriginPath:
+					# Check if folder is in db
+					logging.info("Looking for: {}, {}".format("id", folderOriginPath[1]))
+					retrievedData = ft.read(key = "id",\
+											value = folderOriginPath[1])
+					# If the folder is in the db, then index the files
+					if retrievedData != None:
+						# Check files field has data dataPoints
+						# Extract list of files from the retrievedData query
+						filesInFolderDb = [i["file_name"] for i in retrievedData[0]["files"]]
+						# Read files at origin path
+						filesFolderOrigin = os.listdir(os.path.join(folderOriginPath[0],\
+																folderOriginPath[1]))
+						# Iterate over files
+						for fileFolderOrigin in filesFolderOrigin:
+							# Check if file is in db
+							# If the file already exists, then print an overwriting
+							# warning.
+							print(fileFolderOrigin, filesInFolderDb)
+							if fileFolderOrigin in filesInFolderDb:
+								logging.warning("File already exists {} ... removing file.".format(fileFolderOrigin))
+								os.remove(os.path.join(folderOriginPath[0],\
+														folderOriginPath[1],\
+														fileFolderOrigin))
+							else:
+								# Otherwise, move the file to the destination path
+								try:
+									# Move file
+									os.rename(os.path.join(folderOriginPath[0],\
+															folderOriginPath[1],\
+															fileFolderOrigin),\
+											os.path.join(Paths.PATH_TO_DESTINATION_IN_PC,\
+														folderOriginPath[1],\
+														fileFolderOrigin))
+									# Append to files in its corresponding folder
+									insertDict = {"files": {"file_name": fileFolderOrigin}}
+									ft.push(key = "id",\
+											value = folderOriginPath[1],\
+											dictToInsert = insertDict)
+									logging.info("file moved and inserted in db")
+								except:
+									logging.error("File could not be moved {}".format(fileFolderOrigin))
 					else:
-						pass
+						# Otherwise, create the folder and insert into db
+						result = ft.create_folder(os.path.join(Paths.PATH_TO_DESTINATION_IN_PC,\
+																folderOriginPath[1]))
+						if result:
+							# Save into db
+							insertDict = {"id": folderOriginPath[1],\
+											"diagnostic": 0,\
+											"files": []}
+							ft.create(dictToInsert = insertDict)
+							logging.info("Folder created and saved in the database.")
+						else:
+							logging.error("Folder could not be created: {}".format(os.path.join(Paths.PATH_TO_DESTINATION_IN_PC,\
+																								folderOriginPath[1])))
 			# Sleep for 10 seconds. If interrupt.set() is called, then the thread
 			# will be closed even if it is in the interrupt.wait().
 			self.interrupt.wait(3)

@@ -16,11 +16,11 @@ class CRUD(Interface):
 	def create(self, dictToInsert):
 		pass
 
-	def read(self, name):
+	def read(self, key, value):
 		pass
 
-	def update(self, name, updateDict):
+	def update(self, key, value, dictToInsert):
 		pass
 
-	def delete(self, name):
+	def delete(self, key, value):
 		pass

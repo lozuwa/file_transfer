@@ -59,6 +59,7 @@ class FileTransfer(Database):
 			None
 		"""
 		self.originPaths = connectedDevices
+		logging.info("Origin paths set to: {}".format(ft.originPaths))
 
 	def numberConnectedDevices(self):
 		"""
@@ -72,17 +73,43 @@ class FileTransfer(Database):
 		logging.info("Connected devices: {}".format(connectedDevices))
 		return connectedDevices if len(connectedDevices) > 0 else None
 
+	def readOriginFolders(self):
+		"""
+		Reads the folders in the origin path.
+		Returns:
+			A list of tuples containing the (path, folder) names.
+		"""
+		# Variables
+		foldersOriginPath = []
+		# Iterate over paths
+		for originPath in self.originPaths:
+			try:
+				# Read folders in path
+				folders = os.listdir(originPath)
+			except Exception as e:
+				logging.error("Not able to read folders at path: {}".format(originPath))
+				continue
+			# Iterate over folders
+			for folder in folders:
+				foldersOriginPath.append((originPath, folder))
+		# Return folders
+		return foldersOriginPath
+
 	def comparePathWithDB(self):
 		"""
 		Compare the origin path and the db in order to obtain the missing folders.
 		Returns:
-			A list of tuples containing the path and the name of the folder that
+			Two lists:
+			- A list of tuples containing the path and the name of the folder that
 			needs to be transfered.
+			- Another list of tuples containing the path and the name of the folder that
+			already exist in the db.
 		"""
 		# Variables
 		foldersOriginPathName = []
 		foldersOriginPathPath = []
-		returnFoldersAndPaths = []
+		missingFoldersAndPaths = []
+		existingFoldersAndPaths = []
 		# Iterate over devices
 		for path in self.originPaths:
 			# Get folders in each device and iterate
@@ -96,13 +123,13 @@ class FileTransfer(Database):
 				retrievedData = [i for i in self.read(folder)]
 				# If the folder is found, then do nothing
 				if len(retrievedData) > 0:
-					continue
+					existingFoldersAndPaths.append((path, folder))
 				# Otherwise, append to return list
 				else:
-					logging.info("Folder that needs to be copied: {}, {}".format(path, folder))
-					returnFoldersAndPaths.append((path, folder))
+					logging.info("There is a folder that needs to be copied: {}, {}".format(path, folder))
+					missingFoldersAndPaths.append((path, folder))
 		# Return the folders
-		return returnFoldersAndPaths
+		return missingFoldersAndPaths, existingFoldersAndPaths
 
 	def transferFolder(self,
 						folderName,
@@ -116,18 +143,38 @@ class FileTransfer(Database):
 		Returns:
 			None
 		"""
-		#try:
-		# Move folder
-		os.rename(os.path.join(folderPath, folderName),\
-						os.path.join(Paths.PATH_TO_DESTINATION_IN_PC, folderName))
-		# Insert to db
-		dictToInsert = {"name": folderName,\
-						"path": os.path.join(Paths.PATH_TO_DESTINATION_IN_PC, folderName),\
-						"diagnostic": 0,\
-						"results": []}
-		self.create(dictToInsert = dictToInsert)
-		#except:
-		#	logging.warning("Impossible to transfer folder, writer is in use. Skipping folder.")
+		try:
+			# Move folder
+			os.rename(os.path.join(folderPath, folderName),\
+							os.path.join(Paths.PATH_TO_DESTINATION_IN_PC, folderName))
+			# Insert to db
+			dictToInsert = {"name": folderName,\
+							"path": os.path.join(Paths.PATH_TO_DESTINATION_IN_PC, folderName),\
+							"diagnostic": 0,\
+							"results": []}
+			self.create(dictToInsert = dictToInsert)
+		except:
+			logging.warning("Impossible to transfer folder, writer is in use. Skipping folder.")
+
+	def transferFile(self,
+					originPath,
+					destinyPath,
+					fileName):
+		"""
+		Transfer a file from path1 to path2.
+
+		"""
+		try:
+			# Move file
+			os.rename(os.path.join(originPath, fileName),\
+						os.path.join(destinyPath, fileName))
+			# Insert file in db
+			dictToInsert = {"name": folderName,\
+							"path": os.path.join(Paths.PATH_TO_DESTINATION_IN_PC, folderName),\
+							"diagnostic": 0,\
+							"results": []}
+		except:
+			pass
 
 	@staticmethod
 	def create_folder(folder_name):
@@ -143,15 +190,16 @@ class FileTransfer(Database):
 		result = False
 		# Assert and create
 		if os.path.isdir(folder_name):
-			logging.debug("File already exists")
+			logging.debug("Folder already exists")
+			result = True
 		else:
 			try:
 				os.mkdir(folder_name)
-			except Exception as e:
-				logging.error("File could not be created: {}".format(e))
+			except:
+				logging.error("Folder could not be created: {}".format(e))
 			else:
 				result = True
-				logging.info("File created: {}".format(folder_name))
+				logging.info("Folder created: {}".format(folder_name))
 		return result
 
 	@staticmethod
@@ -177,3 +225,18 @@ class FileTransfer(Database):
 			logging.info("folder: {} is not available for transfer. Amount of files: {}".\
 							format(folder_name, len(files)))
 			return False
+
+	@staticmethod
+	def extract_name_and_id(line):
+		"""
+		DEPRECATED
+		Extracts a name and a consequent number.
+		Args:
+			line: A string that contains a name and a identification.
+					E.g: rodrigo loza lucero_6729216
+		Returns:
+			A tuple that contains the filtered name and identification.
+		"""
+		name = re.match(r"([A-Za-z ]+)", line, re.I).group()
+		identification = line.split("_")[1]
+		return (name, identification)

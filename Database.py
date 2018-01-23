@@ -47,49 +47,86 @@ class Database(implements(CRUD)):
 		Returns:
 			A string that contains the response of the insertion operation.
 		"""
-		response = self.db.insert_one(dictToInsert)
-		return response
+		# Assert dictToInsert is a dictionary
+		assert type(dictToInsert) == dict, "dictToInsert is not a dict"
+		self.db.insert_one(dictToInsert)
 
 	def read(self,
-			name):
+			key,
+			value):
 		"""
 		Reads an element in the db.
 		Args:
-			name: A string that contains the name of the value to retrieve.
+			key: A string that contains the key to filter in the db.
+			value: A string that contains the value mapped to the key to find
+					in the db.
 		Returns:
-			A dictionary containing the filtered value.
+			A list that contains a dictionary which holds the filtered value if
+			there is data retrieved. Otherwise, return None.
 		"""
-		retrievedDict = self.db.find({"name": name})
-		return retrievedDict
+		# Assert key and value are strings
+		assert type(key) == str, "Key is not a str"
+		assert type(value) == str, "Key is not a str"
+		readData = [i for i in self.db.find({key: value})]
+		return readData if len(readData) > 0 else None
 
 	def update(self,
-				name,
-				updateDict):
+				key,
+				value,
+				dictToInsert):
 		"""
 		Updates an element in the db.
 		Args:
-			name: pair a string that contains the name of the value
-						to update.
+			key: A string that contains the key to filter in the db.
+			value: A string that contains the value mapped to the key to find
+					in the db.
 			updateDict: dictionary that contains the key: value
 											pairs to update.
 		Returns:
-			A string that contains the response of the insertion operation.
+				A boolean that contains the response of the operation.
 		"""
-		response = self.db.update_one({"name": name}, \
-																		{"$set": update_dict})
-		return response
+		# Assert key and value are strings. Assert dictToInsert is a dictionary
+		assert type(key) == str, "Key is not a string"
+		assert type(value) == str, "Value is not a string"
+		assert type(dictToInsert) == dict, "dictToInsert is not a dictionary"
+		response = self.db.update_one({key: value},\
+										{"$set": dictToInsert})
+		return bool(response["ok"])
 
-	def delete(self,
-				name):
+	def push(self,
+				key,
+				value,
+				dictToInsert):
 		"""
 		Deletes one element in the database.
 		Args:
-			name: A string that contains the value to find and remove the
-						data point in the db.
+			key: A string that contains the key to filter in the db.
+			value: A string that contains the value mapped to the key to find
+					in the db.
+		Returns:
+				A boolean that contains the response of the operation.
+		"""
+		assert type(key) == str, "Key is not a string"
+		assert type(value) == str, "Value is not a string"
+		assert type(dictToInsert) == dict, "dictToInsert is not a dictionary"
+		response = self.db.update_one({key: value},\
+										{"$push": dictToInsert})
+		return bool(response["ok"])
+
+	def delete(self,
+				key,
+				value):
+		"""
+		Deletes one element in the database.
+		Args:
+			key: A string that contains the key to filter in the db.
+			value: A string that contains the value mapped to the key to find
+					in the db.
 		Returns:
 			A string with the result of the delete operation.
 		"""
-		self.db.remove({"name": name})
+		assert type(name) == str, "Name is not a string"
+		self.db.remove({key: value})
 
 	def extractAllDataPoints(self):
 		"""
