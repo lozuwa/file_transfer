@@ -2,7 +2,8 @@
 Author: Rodrigo Loza
 Email: lozuwaucb@gmail.com
 Company: pfm Bolivia
-Description: Class for the database.
+Description: Creates a connection to the pfm_patients database and implements
+the CRUD operations.
 
 * dictionary template to introduce in db:
 	{"name": "",
@@ -15,27 +16,32 @@ Description: Class for the database.
 # General purpose
 import os
 import sys
+# Interface
+from interface import implements
 # Database
 from pymongo import *
 
-class Database:
+class Database(implements(CRUD)):
 	"""
 	Creates a connection to a database.
+	CRUD operations for the db.
 	"""
 	def __init__(self):
+		# Assert mongodb is running
+		assert os.system("ps -a | grep mongod") == 0, MONGOD_IS_NOT_RUNNING
 		# Create a client
 		client = MongoClient()
 		# Bind the patient's collection
 		db = client.pfm_patients
 		self.db = db.pfm_patients
 
-	def insert(self,
-							dictToInsert):
+	def create(self,
+				dictToInsert):
 		"""
 		Inserts an element to the db.
 		Args:
 			dictToInsert: dictionary that contains the key: value
-											pairs to insert. 
+											pairs to insert.
 		Returns:
 			A string that contains the response of the insertion operation.
 		"""
@@ -43,7 +49,7 @@ class Database:
 		return response
 
 	def read(self,
-						name):
+			name):
 		"""
 		Reads an element in the db.
 		Args:
@@ -51,18 +57,18 @@ class Database:
 		Returns:
 			A dictionary containing the filtered value.
 		"""
-		retrieved_dict = self.db.find({"name": name})
-		return retrieved_dict
+		retrievedDict = self.db.find({"name": name})
+		return retrievedDict
 
 	def update(self,
-							name,
-							update_dict):
+				name,
+				updateDict):
 		"""
 		Updates an element in the db.
 		Args:
-			name: pair a string that contains the name of the value 
+			name: pair a string that contains the name of the value
 						to update.
-			dict_to_insert: dictionary that contains the key: value
+			updateDict: dictionary that contains the key: value
 											pairs to update.
 		Returns:
 			A string that contains the response of the insertion operation.
@@ -72,11 +78,11 @@ class Database:
 		return response
 
 	def delete(self,
-							name):
+				name):
 		"""
 		Deletes one element in the database.
 		Args:
-			name: A string that contains the value to find and remove the 
+			name: A string that contains the value to find and remove the
 						data point in the db.
 		Returns:
 			A string with the result of the delete operation.

@@ -4,66 +4,164 @@ Email: lozuwaucb@gmail.com
 Company: pfm Bolivia
 Description: Class for the File Transfer program.
 """
-
 # Libraries
 # General purpose
 import os
 import sys
+import logging
+
+logging.basicConfig(level=logging.INFO, format="%s(asctime)s:%(levelname)s:%s(message)s")
+
+class Paths:
+	"""
+	Public static final class that defines constant paths.
+	"""
+	PATH_TO_DEVICES = "c:/Users/HP/Downloads/origin/"
+	PATH_TO_DESTINATION_IN_PC = "c:/Users/HP/Downloads/destination/"
+	PATH_TO_DCIM_IN_PHONE = "/DCIM/"
 
 class FileTransfer(Database):
 	"""
-	Copies files between to destinations and adds 
+	Copies files between to destinations and adds
 	them to a database.
 	"""
-	def __init__(self,
-								originPath = None,
-								destinationPath = None):
-		super().__init__()
-		self.originPath = originPath
-		self.destinationPath = destinationPath
-	
-	def comparePaths(self):
-		"""
-		Compare the origin and destination path and get the difference.
-		Returns:
-			A set containing the folders that are in the origin path but not
-			in the destination path.
-		"""
-		# Folders in origin path
-		foldersOriginPath = [i for i in os.listdir(self.originPath)]
-		# Data points in db
-		foldersDB = self.extractAllDataPoints()
-		# Compare both
-		missingFolders = set(foldersOriginPath).difference(foldersDB)
-		return missingFolders
+	def __repr__(self):
+		return "FileTransfer({},{})".format(self.originPaths, self.destinationPath)
 
-	def transferFolders(self,
-										folderNames):
+	def __init__(self):
+		super().__init__()
+		self.originPaths = None
+		self.destinationPath = Paths.PATH_TO_DESTINATION_IN_PC
+
+	@property
+	def propertyOriginPaths(self):
 		"""
-		Transfer the folders from the origin path to the destination path.
-		While transferring adds the corresponding fields to the db.
+		Getter for originPaths.
+		Returns:
+			A list that contains the origin paths. If not set yet, then None.
+		"""
+		return self.originPaths
+
+	@propertyOriginPaths.setter
+	def propertyOriginPaths(self, connectedDevices):
+		"""
+		Setter for originPaths.
 		Args:
-			folderNames: A list that contains the names of the folders to 
-									copy to the destination.
+			connectedDevices: A list that contains the names of the connected
+								devices.
 		Returns:
 			None
 		"""
-		# Iterate
-		for folderName in folderNames:
+		self.originPaths = [os.path.join(Paths.PATH_TO_DEVICES, \
+							i, PATH_TO_DCIM_IN_PHONE) for i in \
+							connectedDevices]
+
+	def numberConnectedDevices(self):
+		"""
+		Checks the devices connected at the origin path.
+		Returns:
+			A list containing the devices connected if the list is over 0,
+			otherwise return None.
+		"""
+		# Get the devices connected at origin path
+		connectedDevices = os.listdir(Paths.PATH_TO_DEVICES)
+		return connectedDevices if len(connectedDevices) > 0 else None
+
+	def comparePathWithDB(self):
+		"""
+		Compare the origin path and the db in order to obtain the missing folders.
+		Returns:
+			A list of tuples containing the path and the name of the folder that
+			needs to be transfered.
+		"""
+		# Variables
+		foldersOriginPathName = []
+		foldersOriginPathPath = []
+		returnFoldersAndPaths = []
+		# Iterate over devices
+		for path in self.originPaths:
+			# Get folders in each device and iterate
+			for folder in os.listdir(path):
+				# Check if folder is in the db
+				retrievedData = [i for i in self.read(folder)]
+				# If the folder is found, then do nothing
+				if len(retrievedData) > 0:
+					continue
+				# Otherwise, append to return list
+				else:
+					returnFoldersAndPaths.append((path, folder))
+		# Return the folders
+		return returnFoldersAndPaths
+
+	def transferFolder(self,
+						folderName,
+						folderPath):
+		"""
+		Transfer a folder from the origin path to the destination path.
+		While transferring add the corresponding fields to the db.
+		Args:
+			folderNames: A string that contains the number of the folder to transfer.
+			folderPath: A string that contains the path of the folder to transfer.
+		Returns:
+			None
+		"""
+		try:
+			# Move folder
+			os.rename(os.path.join(folderPath, folderName), Paths.PATH_TO_DESTINATION_IN_PC)
+			# Insert to db
+			dictToInsert = {"name": folderName,\
+							"path": os.path.join(folderPath, folderName),\
+							"diagnostic": 0,\
+							"results": []}
+			self.insert(dictToInsert = dictToInsert)
+		except:
+			logging.warning("Writing is in use, skipping folder")
+
+	@staticmethod
+	def create_folder(folder_name):
+		"""
+		Creates a folder.
+		Args:
+			folder_name: A string that contains the name of the folder to be
+						created.
+		Returns:
+			A boolean that contains the success state of the operation.
+		"""
+		# Variables
+		result = False
+		# Assert and create
+		if os.path.isdir(folder_name):
+			logging.debug("File already exists")
+		else:
 			try:
-				# Get paths
-				folderOriginPath = os.path.join(self.originPath, folderName)
-				folderDestinationPath = os.path.join(self.destinationPath,\
-																							folderName)
-				# Move folder
-				os.rename(folderOriginPath, folderDestinationPath)
-				# Insert to the db
-				dictToInsert = {"name": folderName,\
-												"path": folderDestinationPath\
-												"diagnostic": 0,\
-												"results": []}
-				self.insert(dictToInsert = dictToInsert)
-			except:
-				print(": ERROR: Writer is in use, skipping folder.")
+				os.mkdir(folder_name)
+			except Exception as e:
+				logging.error("File could not be created: {}".format(e))
+			else:
+				result = True
+				logging.info("File created: {}".format(folder_name))
+		return result
 
-
+	@staticmethod
+	def check_amount_of_files(folder_name):
+		"""
+		Checks how many files are in a specific folder
+		Args:
+			folder_name: input string that contains the path of the folder
+							we are trying to count
+		Returns:
+			True if the folder has the correct amount of files
+			False if the folder does not have the correct amount of files
+		"""
+		# Assertion
+		assert os.path.isdir(folder_name), ": ERROR: folder does not exist: {}".\
+												format(folder_name)
+		# Count files
+		files = os.listdir(folder_name)
+		if len(files) == FILES_QUANTITY_THRESHOLD:
+			logging.info("folder {} is available for transfer".format(folder_name))
+			return True
+		else:
+			logging.info("folder: {} is not available amount of files: {}".\
+							format(folder_name, len(files)))
+			return False
