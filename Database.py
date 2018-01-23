@@ -20,6 +20,8 @@ import sys
 from interface import implements
 # Database
 from pymongo import *
+# Local Libraries
+from CRUD import CRUD
 
 class Database(implements(CRUD)):
 	"""
@@ -73,7 +75,7 @@ class Database(implements(CRUD)):
 		Returns:
 			A string that contains the response of the insertion operation.
 		"""
-		response = self.db.update_one({"name" = name}, \
+		response = self.db.update_one({"name": name}, \
 																		{"$set": update_dict})
 		return response
 
