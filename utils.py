@@ -3,7 +3,6 @@ Author: Rodrigo Loza
 Email: lozuwaucb@gmail.com
 Company: pfm
 Description: Variables and support methods
-# TODO: pip install python-interface or add to environment requirements (linux machine)
 """
 
 ######################## ASSERTION MESSAGES ########################

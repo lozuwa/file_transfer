@@ -91,7 +91,7 @@ class Database(implements(CRUD)):
 		assert type(dictToInsert) == dict, "dictToInsert is not a dictionary"
 		response = self.db.update_one({key: value},\
 										{"$set": dictToInsert})
-		return bool(response["ok"])
+		return bool(response["n"])
 
 	def push(self,
 				key,
@@ -111,7 +111,7 @@ class Database(implements(CRUD)):
 		assert type(dictToInsert) == dict, "dictToInsert is not a dictionary"
 		response = self.db.update_one({key: value},\
 										{"$push": dictToInsert})
-		return bool(response["ok"])
+		return bool(response["n"])
 
 	def delete(self,
 				key,
@@ -125,7 +125,9 @@ class Database(implements(CRUD)):
 		Returns:
 			A string with the result of the delete operation.
 		"""
-		assert type(name) == str, "Name is not a string"
+		# Assert key value
+		assert type(key) == str, "Key is not a string"
+		assert type(value) == str, "Value is not a string"
 		self.db.remove({key: value})
 
 	def extractAllDataPoints(self):

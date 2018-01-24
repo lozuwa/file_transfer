@@ -19,7 +19,6 @@ class Paths:
 	"""
 	Public static final class that defines constant paths.
 	"""
-	# TODO: set the correct path to DCMI in a smartphone
 	PATH_TO_DEVICES = "c:/Users/HP/Downloads/origin/"
 	PATH_TO_DESTINATION_IN_PC = "c:/Users/HP/Downloads/destination/"
 	PATH_TO_DCIM_IN_PHONE = "DCIM"
