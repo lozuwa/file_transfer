@@ -46,7 +46,7 @@ class ClassifyFolders:
             logging.warning("No image has been passed to preprocess image.")
             return None
         height, width, depth = tensor.shape
-        patchesCoordinates, _, __ = prepImage.divideIntoPatches(width,
+        patchesCoordinates, _, __ = self.prepImage.divideIntoPatches(width,
                                             					height,
                                             					padding = "VALID_FIT_ALL",
                                             					number_patches = (4, 3))

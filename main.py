@@ -67,15 +67,15 @@ class ClassifyDBThread(threading.Thread):
 							# Preprocess image
 							patchesCoordinates = clf.preprocessImage(frame)
 							# Save image's patches
-							for patch in patches:
+							for patch in patchesCoordinates:
 								# Decode patch
 								iy, ix, y, x = patch
 								# Create path to patch
 								pathToPatch = os.path.join(pathNotDiagnosed, "tmp", "tmp.jpg")
 								# Save patch
-								cv2.imwrite(frame[iy:y, ix:x, :], pathToPatch)
+								cv2.imwrite(pathToPatch, frame[iy:y, ix:x, :])
 								# Classify patch
-								result = clf.classifyFile()
+								result = clf.classifyFile(pathToPatch)
 					else:
 						logging.error("tmp folder could not be created.")
 			else:
