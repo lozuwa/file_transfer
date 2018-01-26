@@ -17,8 +17,11 @@ from collections import defaultdict
 from io import StringIO
 from matplotlib import pyplot as plt
 from PIL import Image
+# Local libs
+from utils import *
 
 # Path to utils inside object localization folder
+# Needs to be hardcoded.
 sys.path.append(os.path.join("/home/pfm/Documents/", "models/research/object_detection/utils/"))
 import label_map_util
 import visualization_utils as vis_util
@@ -39,9 +42,9 @@ class LoadObjectDetectionModel(object):
 		self.loadLabelMap()
 
 	def loadModel(self):
-    	"""
-    	Loads the model's frozen graph.
-    	"""
+			"""
+			Loads the model's frozen graph.
+			"""
 		self.detection_graph = tf.Graph()
 		with self.detection_graph.as_default():
 			od_graph_def = tf.GraphDef()
@@ -51,9 +54,9 @@ class LoadObjectDetectionModel(object):
 				tf.import_graph_def(od_graph_def, name="")
 
 	def loadLabelMap(self):
-    	"""
-    	Loads the model's labels.
-    	"""
+			"""
+			Loads the model's labels.
+			"""
 		label_map = label_map_util.load_labelmap(PATH_TO_LABELS)
 		categories = label_map_util.convert_label_map_to_categories(label_map,\
 																																max_num_classes = self.NUM_CLASSES,\
@@ -61,31 +64,28 @@ class LoadObjectDetectionModel(object):
 		self.category_index = label_map_util.create_self.category_index(categories)
 
 	def load_image_into_numpy_array(self,
-                                    image):
-        """
-        Converts a PILLOW image format into a numpy image format.
-        Args:
-            image: PILLOW format image
-        Returns:
-            An opencv image format.
-        """
+																		image):
+				"""
+				Converts a PILLOW image format into a numpy image format.
+				Args:
+						image: PILLOW format image
+				Returns:
+						An opencv image format.
+				"""
 		(im_width, im_height) = image.size
 		return np.array(image.getdata()).reshape(
 				(im_height, im_width, 3)).astype(np.uint8)
 
 	def classifyFile(self,
-                    input_image_path = None,
-                    output_image_path = None):
-        """
-        Classifies an image using the graph's model.
-        Args:
-            input_image_path: A string that contains the path of the image to
-                                classify.
-            output_image_path: A string that contains the path to store the
-                                classified image.
-        Returns:
-            A boolean that indicates objects were found.
-        """
+										input_image_path = None):
+				"""
+				Classifies an image using the graph's model.
+				Args:
+						input_image_path: A string that contains the path of the image to
+																classify.
+				Returns:
+						A boolean that indicates objects were found.
+				"""
 		with self.detection_graph.as_default():
 			with tf.Session(graph=self.detection_graph) as sess:
 				# Definite input and output Tensors for self.detection_graph
@@ -111,17 +111,18 @@ class LoadObjectDetectionModel(object):
 						feed_dict={image_tensor: image_np_expanded})
 				# Visualization of the results of a detection.
 				vis_util.visualize_boxes_and_labels_on_image_array(image_np,
-                                        							np.squeeze(boxes),
-                                        							np.squeeze(classes).astype(np.int32),
-                                        							np.squeeze(scores),
-                                        							self.category_index,
-                                        							use_normalized_coordinates=True,
-                                        							line_thickness=8)
-                if max(np.squeeze(scores)) > 0.80:
-    				image = Image.fromarray(image_np)
-    				image.save(output_image_path)
-                    return True
-                else:
-                    return False
+																											np.squeeze(boxes),
+																											np.squeeze(classes).astype(np.int32),
+																											np.squeeze(scores),
+																											self.category_index,
+																											use_normalized_coordinates=True,
+																											line_thickness=8)
+				if max(np.squeeze(scores)) > 0.80:
+					# @DEPRECATED
+					# image = Image.fromarray(image_np)
+					# image.save(output_image_path)
+					return True, (np.squeeze(classes), np.squeeze(scores), image_np)
+				else:
+					return False, None
 				# plt.figure(figsize=self.IMAGE_SIZE)
 				# plt.imshow(image_np)

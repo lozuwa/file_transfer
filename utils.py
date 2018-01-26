@@ -4,6 +4,14 @@ Email: lozuwaucb@gmail.com
 Company: pfm
 Description: Variables and support methods
 """
+# Libraries
+# General purpose
+import os
+import sys
+import logging
+
+logging.basicConfig(level=logging.INFO) #format="%s(asctime)s:%(levelname)s:%s(message)s")
+# logging.basicConfig(level=logging.INFO, format="%s(asctime)s:%(levelname)s:%s(message)s")
 
 ######################## ASSERTION MESSAGES ########################
 VARIABLE_IS_NOT_STR = "Variable type is not str"

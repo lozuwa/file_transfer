@@ -13,8 +13,6 @@ import logging
 from Database import Database
 from utils import *
 
-logging.basicConfig(level=logging.INFO) #format="%s(asctime)s:%(levelname)s:%s(message)s")
-
 class Paths:
 	"""
 	Public static final class that defines constant paths.
@@ -23,20 +21,24 @@ class Paths:
 	PATH_TO_DESTINATION_IN_PC = "c:/Users/HP/Downloads/destination/"
 	PATH_TO_DCIM_IN_PHONE = "DCIM"
 
-class FileTransfer(Database):
+class FileTransfer(object):
 	"""
 	Copies files between to destinations and adds
 	them to a database.
 	"""
 	def __repr__(self):
-		return "FileTransfer({},{})".format(self.originPaths, self.destinationPath)
+		return "FileTransfer({},{})".format(self.originPaths,\
+																				self.targetPath)
 
 	def __init__(self):
 		super().__init__()
+		# Class variables
 		self.originPaths = None
-		self.destinationPath = Paths.PATH_TO_DESTINATION_IN_PC
+		self.targetPath = Paths.PATH_TO_DESTINATION_IN_PC
+		self.db = Database()
 		# Assert destination path
-		assert os.path.isdir(self.destinationPath) == True, "Path does not exist: {}".format(self.destinationPath)
+		assert os.path.isdir(self.targetPath) == True,\
+						"Path does not exist: {}".format(self.targetPath)
 
 	@property
 	def propertyOriginPaths(self):
@@ -48,7 +50,7 @@ class FileTransfer(Database):
 		return self.originPaths
 
 	@propertyOriginPaths.setter
-	def propertyOriginPaths(self, connectedDevices):
+	def propertyOriginPaths(self, newPaths):
 		"""
 		Setter for originPaths.
 		Args:
@@ -57,10 +59,24 @@ class FileTransfer(Database):
 		Returns:
 			None
 		"""
-		self.originPaths = connectedDevices
+		self.originPaths = newPaths
 		logging.info("Origin paths set to: {}".format(ft.originPaths))
 
-	def numberConnectedDevices(self):
+	@property
+	def propertyTargetPath(self):
+		"""
+		Getter for targetPath
+		"""
+		return self.targetPath
+
+	@propertyTargetPath.setter
+	def propertyTargetPath(self, newPath):
+		"""
+		Setter for targetPath
+		"""
+		self.targetPath = newPath
+
+	def numberConnectedDevicesAtOrigin(self):
 		"""
 		Checks the devices connected at the origin path.
 		Returns:
@@ -68,11 +84,11 @@ class FileTransfer(Database):
 			otherwise return None.
 		"""
 		# Get the devices connected at origin path
-		connectedDevices = os.listdir(Paths.PATH_TO_DEVICES)
+		connectedDevices = [i for i in os.listdir(Paths.PATH_TO_DEVICES)]
 		logging.info("Connected devices: {}".format(connectedDevices))
 		return connectedDevices if len(connectedDevices) > 0 else None
 
-	def readOriginFolders(self):
+	def readFoldersAtOrigin(self):
 		"""
 		Reads the folders in the origin path.
 		Returns:
@@ -94,8 +110,45 @@ class FileTransfer(Database):
 		# Return folders
 		return foldersOriginPath
 
+	def isFolderAtDB(self,
+										value = None):
+		"""
+		Checks if the value is in the db.
+		Returns:
+			A list containing the query with the response.
+			If nothing was found, then None is returned.
+		"""
+		# Init local variables
+		if value == None:
+			return None
+		# Check in the db
+		query = self.db.read(key = "id",
+													value = value)
+		return query
+
+	def insertFolderToDB(self,
+												dictToInsert = None):
+		"""
+		Insert a value in the db.
+		Args:
+			A dictionary containing the fieds to insert.
+		Returns:
+			A boolean with the operation response.
+		"""
+		# Local variables
+		if dictToInsert == None:
+			return None
+		# Insert in db
+		self.db.create(dictToInsert)
+		# Read in db to make sure the dictionary 
+		# has been written
+		result = self.db.read(key = "id", \
+													value = dictToInsert["id"])
+		return False if result == None else True
+
 	def comparePathWithDB(self):
 		"""
+		DEPRECATED
 		Compare the origin path and the db in order to obtain the missing folders.
 		Returns:
 			Two lists:
@@ -119,7 +172,7 @@ class FileTransfer(Database):
 				continue
 			for folder in folders:
 				# Check if folder is in the db
-				retrievedData = [i for i in self.read(folder)]
+				retrievedData = [i for i in self.db.read(folder)]
 				# If the folder is found, then do nothing
 				if len(retrievedData) > 0:
 					existingFoldersAndPaths.append((path, folder))
@@ -131,14 +184,16 @@ class FileTransfer(Database):
 		return missingFoldersAndPaths, existingFoldersAndPaths
 
 	def transferFolder(self,
-						folderName,
-						folderPath):
+										folderName,
+										folderPath):
 		"""
 		Transfer a folder from the origin path to the destination path.
 		While transferring add the corresponding fields to the db.
 		Args:
-			folderNames: A string that contains the number of the folder to transfer.
-			folderPath: A string that contains the path of the folder to transfer.
+			folderNames: A string that contains the number of the folder 
+										to transfer.
+			folderPath: A string that contains the path of the folder 
+										to transfer.
 		Returns:
 			None
 		"""
@@ -148,32 +203,51 @@ class FileTransfer(Database):
 							os.path.join(Paths.PATH_TO_DESTINATION_IN_PC, folderName))
 			# Insert to db
 			dictToInsert = {"name": folderName,\
-							"path": os.path.join(Paths.PATH_TO_DESTINATION_IN_PC, folderName),\
-							"diagnostic": 0,\
-							"results": []}
-			self.create(dictToInsert = dictToInsert)
+											"path": os.path.join(Paths.PATH_TO_DESTINATION_IN_PC,\
+																						folderName),\
+											"diagnostic": 0,\
+											"results": []}
+			self.db.create(dictToInsert = dictToInsert)
 		except:
 			logging.warning("Impossible to transfer folder, writer is in use. Skipping folder.")
 
 	def transferFile(self,
-					originPath,
-					destinyPath,
-					fileName):
+									originPath,
+									targetPath,
+									fileName):
 		"""
 		Transfer a file from path1 to path2.
-
+		Args:
+			originPath: A string that contains the origin path.
+			targetPath: A string that contains the target path.
+			fileName: A string that contains the name of the file.
+		Returns:
+			A boolean responsind if the file was transferred.
 		"""
-		try:
-			# Move file
-			os.rename(os.path.join(originPath, fileName),\
-						os.path.join(destinyPath, fileName))
-			# Insert file in db
-			dictToInsert = {"name": folderName,\
-							"path": os.path.join(Paths.PATH_TO_DESTINATION_IN_PC, folderName),\
-							"diagnostic": 0,\
-							"results": []}
-		except:
-			pass
+		print(os.path.join(originPath, fileName))
+		print(os.path.join(targetPath, fileName))
+		# Move file
+		assert os.path.join(originPath, fileName), "Origin path does not work."
+		assert os.path.join(targetPath, fileName), "Target path does not work."
+		assert os.path.join(originPath, fileName) != \
+						os.path.join(targetPath, fileName), "Origin and target paths are equal!"
+		# try:
+		os.rename(os.path.join(originPath, fileName),
+						os.path.join(targetPath, fileName))
+		# Insert file in db
+		insertDict = {"files": {"file_name": fileName,
+                            "diagnostic": "0",
+                            "results": ""}}
+		folderName = os.path.split(targetPath)[1]
+		print("Folder name: ", folderName)
+		self.db.update(operation = "push",
+									key = "id",
+									value = folderName,
+									dictToInsert = insertDict)
+		# except:
+		# 	logging.error("File {} could not be inserted in db.".format(fileName))
+		response = os.path.isfile(os.path.join(targetPath, fileName))
+		return response
 
 	@staticmethod
 	def create_folder(folder_name):
@@ -195,7 +269,7 @@ class FileTransfer(Database):
 			try:
 				os.mkdir(folder_name)
 			except:
-				logging.error("Folder could not be created: {}".format(e))
+				logging.error("Folder could not be created")
 			else:
 				result = True
 				logging.info("Folder created: {}".format(folder_name))
